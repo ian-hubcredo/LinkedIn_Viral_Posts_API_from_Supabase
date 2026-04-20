@@ -1,0 +1,326 @@
+{
+  "name": "Linkedin Fetch 3 Viral Posts from DB",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "74a40a12-8ace-49f3-b5d6-42b15b694058",
+              "name": "Keyword",
+              "value": "={{ $json.body.category }}",
+              "type": "string"
+            },
+            {
+              "id": "7696cde7-cf20-433a-9a28-1a1367c5909b",
+              "name": "Topic",
+              "value": "={{ $json.body.topic }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        208
+      ],
+      "id": "b6c0f7ac-5d04-4270-b7d0-03c714967ddc",
+      "name": "Set Category/Keyword for Supabase Search"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "viral_posts_new",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "keyword",
+              "condition": "like",
+              "keyValue": "=%{{ $json.Keyword.toLowerCase() }}%"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        416,
+        208
+      ],
+      "id": "bf75d1dd-f044-45a2-8953-ceb429b6e4ac",
+      "name": "Fetch Keyword Specific Posts from Supabase Table",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "<REDACTED_CREDENTIAL_ID>", "name": "<REDACTED_CREDENTIAL_NAME>"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sortFieldsUi": {
+          "sortField": [
+            {
+              "fieldName": "virality_score",
+              "order": "descending"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.sort",
+      "typeVersion": 1,
+      "position": [
+        608,
+        208
+      ],
+      "id": "5294252d-17ef-4129-86c0-2794563ba431",
+      "name": "Sort Posts"
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        816,
+        208
+      ],
+      "id": "ee291f9b-3178-468a-a620-35db257cad4a",
+      "name": "Return only 3 Posts"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ebfd3bd1-236e-4448-9801-5597bc8e1117",
+              "name": "post_url",
+              "value": "={{ $json.post_url }}",
+              "type": "string"
+            },
+            {
+              "id": "d7404e22-a71b-442a-a21e-2cd47d3d9dd0",
+              "name": "post_text",
+              "value": "={{ $json.data }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1216,
+        208
+      ],
+      "id": "72fcd7e9-1501-4e66-a3ea-d1c0b7a92aa8",
+      "name": "Format post"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        208
+      ],
+      "id": "3f9cc6f0-d77f-493e-87ea-a132bbff719a",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "mode": "markdownToHtml",
+        "markdown": "={{ $json.post_text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        208
+      ],
+      "id": "6079e611-7d1a-46f0-bd20-4c60045997b3",
+      "name": "Markdown"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the input - it's wrapped in a data array\nconst inputData = $input.first().json.data;\n\n// Function to decode HTML entities\nfunction decodeHtmlEntities(text) {\n  if (!text) return '';\n  \n  const entities = {\n    '&hellip;': '...',\n    '&apos;': \"'\",\n    '&quot;': '\"',\n    '&amp;': '&',\n    '&lt;': '<',\n    '&gt;': '>'\n  };\n  \n  return text.replace(/&[a-z]+;/gi, match => entities[match] || match);\n}\n\n// Extract the 3 posts from the data array\nconst post1 = inputData[0] || {};\nconst post2 = inputData[1] || {};\nconst post3 = inputData[2] || {};\n\n// Return formatted response\nreturn [{\n  json: {\n    post_one_content: decodeHtmlEntities(post1.post_text || ''),\n    post_one_url: post1.post_url || '',\n    post_two_content: decodeHtmlEntities(post2.post_text || ''),\n    post_two_url: post2.post_url || '',\n    post_three_content: decodeHtmlEntities(post3.post_text || ''),\n    post_three_url: post3.post_url || ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        208
+      ],
+      "id": "2ab56f47-3a05-4c60-bc3b-d46e4ccd3a80",
+      "name": "Fix HTML Entities Issue"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fetch-viral-samples",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -16,
+        208
+      ],
+      "id": "8085c759-eeed-49de-b7dd-739835f63677",
+      "name": "Fetch Viral Samples Webhook",
+      "webhookId": "<REDACTED_WEBHOOK_ID>"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1776,
+        208
+      ],
+      "id": "0cf95164-e1d7-4cae-bc65-56b9f1b3655a",
+      "name": "Respond to Fetch Viral Sample Webhook"
+    },
+    {
+      "parameters": {
+        "content": "*Fetch 3 Viral Posts based on category from Supabase Viral Posts DB and display it on UI using webhook reponse node*",
+        "height": 144,
+        "width": 448,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "fcef01f5-06c7-4210-8703-b41e8b44dbde",
+      "name": "Sticky Note6"
+    }
+  ],
+  "connections": {
+    "Set Category/Keyword for Supabase Search": {
+      "main": [
+        [
+          {
+            "node": "Fetch Keyword Specific Posts from Supabase Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Keyword Specific Posts from Supabase Table": {
+      "main": [
+        [
+          {
+            "node": "Sort Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort Posts": {
+      "main": [
+        [
+          {
+            "node": "Return only 3 Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Return only 3 Posts": {
+      "main": [
+        [
+          {
+            "node": "Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format post": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Fix HTML Entities Issue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown": {
+      "main": [
+        [
+          {
+            "node": "Format post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fix HTML Entities Issue": {
+      "main": [
+        [
+          {
+            "node": "Respond to Fetch Viral Sample Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Viral Samples Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Category/Keyword for Supabase Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 1,
+  "meta": null
+}
